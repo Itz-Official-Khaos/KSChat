@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react'
-
-import './App.css'
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'firebase/auth'
-import { getFirestore,onSnapshot, collection, addDoc, orderBy, query, serverTimestamp} from 'firebase/firestore'
-import { auth, app } from '../firebase'
+import { useState, useEffect, useRef } from 'react'
+import './App.css';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'firebase/auth';
+import { doc, setDoc, getFirestore, getDoc, onSnapshot, addDoc, orderBy, query, serverTimestamp, collection, Timestamp } from 'firebase/firestore'
+import { auth, app } from './firebase'
 
 const db = getFirestore(app)
 
-
 function App() {
-
   const [user, setUser] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState("")
+  const messagesEndRef = useRef(null)
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("timestamp"))
@@ -24,73 +22,87 @@ function App() {
     })
     return unsubscribe
   }, [])
-  
- 
+
   useEffect(() => {
-      onAuthStateChanged(auth, user => {
-        if(user) {
-          setUser(user)
-        } else {
-          setUser(null)
-        }
-      })
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        setUser(user)
+      } else {
+        setUser(null)
+      }
+    })
   }, [])
 
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages])
+
   const sendMessage = async () => {
-    await addDoc(collection(db, "messages"), {
-      uid: user.uid,
-      photoURL: user.photoURL,
-      displayName: user.displayName,
-      text: newMessage,
-      timestamp: serverTimestamp()
-    })
+    if (newMessage.trim() === "") return;
+
+    if (user) { // Ensure user is not null
+      await addDoc(collection(db, "messages"), {
+        uid: user.uid,
+        photoURL: user.photoURL,
+        displayName: user.displayName,
+        text: newMessage,
+        timestamp: serverTimestamp()
+      })
+    }
 
     setNewMessage("")
   }
-  
 
-const handleGoogleLogin = async () => {
-  const provider = new GoogleAuthProvider()
-
-  try {
-
-  await signInWithPopup(auth, provider)
-
-    
-  } catch (error) {
-    console.log(error)
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider()
+    try {
+      await signInWithPopup(auth, provider)
+    } catch (error) {
+      console.log(error)
+    }
   }
-}
+
   return (
-    <div className='flex justify-center bg-gray-800 py-10 min-h-screen' >
-      { user ? (
-        <div>
-        <div> Logged in as {user.displayName}</div>
-        <input
-          value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
-        />
-        <button className=' bg-white rounded-[10px] hover:bg-blue-400 p-3' onClick={sendMessage}>Send Message</button>
-        <button className='mb-8 bg-white rounded-[10px] p-3' onClick={() => auth.signOut()}>Logout</button>
-
-        <div className="flex flex-col gap-5">
-
-{messages.map(msg => (
-  <div  key={msg.id} className={`message flex ${msg.data.uid === user.uid ? 'justify-end' : 'justify-start  '}`}>
-  <div className={`message flex flex-row p-3 gap-3 rounded-[20px] items-center ${msg.data.uid === user.uid ? ' text-white bg-blue-500' : ' bg-white '}`}>
-    <img className='w-10 h-10 rounded-full' src={msg.data.photoURL} />
-   {msg.data.text}
-  </div>
-  </div>
-))}
-</div>
-        </div>
-      ):
-   
-      <button onClick={handleGoogleLogin}>Login with Google</button>
-}
+    <div className="App">
+      <div className="button-container">
+        {user ? (
+          <>
+            <div>Logged in as {user.displayName}</div>
+            <input
+              value={newMessage}
+              onChange={e => setNewMessage(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendMessage()}
+            />
+            <button onClick={sendMessage}>Send Message</button>
+            <button onClick={() => auth.signOut()}>Logout</button>
+          </>
+        ) : (
+          <button className="login-btn" onClick={handleGoogleLogin}>Login with Google</button>
+        )}
       </div>
+
+      <div className="messages-container">
+        {messages.map(msg => (
+          <div key={msg.id} className={`message ${msg.data.uid === user?.uid ? 'current' : 'other'}`}>
+            <img
+              src={msg.data.photoURL || "https://i.pravatar.cc/40"}
+              alt="User Profile"
+              className="profile-img"
+            />
+            <div className="message-content">
+              <div className="username">
+                {msg.data.displayName || "Unknown User"}
+              </div>
+              <div className="message-text">{msg.data.text}</div>
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+    </div>
   )
 }
 
-export default App
+export default App;
