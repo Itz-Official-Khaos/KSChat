@@ -83,6 +83,12 @@ button:hover {
   font-size: 14px;
 }
 
+.message-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
 .login-btn {
   padding: 10px 20px;
   background-color: #1e88e5;

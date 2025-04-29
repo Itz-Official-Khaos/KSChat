@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import './App.css';
+import './index.css';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'firebase/auth';
-import { doc, setDoc, getFirestore, getDoc, onSnapshot, addDoc, orderBy, query, serverTimestamp, collection, Timestamp } from 'firebase/firestore'
+import { doc, setDoc, getFirestore, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, orderBy, query, serverTimestamp, collection, Timestamp } from 'firebase/firestore'
 import { auth, app } from './firebase'
 
 const db = getFirestore(app)
@@ -10,6 +10,8 @@ function App() {
   const [user, setUser] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState("")
+  const [editingMessageId, setEditingMessageId] = useState(null) // State for editing a message
+  const [editedMessageText, setEditedMessageText] = useState("") // State to hold edited message text
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -64,6 +66,33 @@ function App() {
     }
   }
 
+  // Function to handle editing a message
+  const editMessage = (msgId, currentText) => {
+    setEditingMessageId(msgId)
+    setEditedMessageText(currentText)
+  }
+
+  const handleEditChange = (e) => {
+    setEditedMessageText(e.target.value)
+  }
+
+  const saveEditedMessage = async () => {
+    if (editedMessageText.trim() === "") return;
+
+    await updateDoc(doc(db, "messages", editingMessageId), {
+      text: editedMessageText,
+      timestamp: serverTimestamp()
+    })
+
+    setEditingMessageId(null)
+    setEditedMessageText("")
+  }
+
+  // Function to handle deleting a message
+  const deleteMessage = async (msgId) => {
+    await deleteDoc(doc(db, "messages", msgId))
+  }
+
   return (
     <div className="App">
       <div className="button-container">
@@ -95,8 +124,27 @@ function App() {
               <div className="username">
                 {msg.data.displayName || "Unknown User"}
               </div>
-              <div className="message-text">{msg.data.text}</div>
+              {editingMessageId === msg.id ? (
+                <div>
+                  <input
+                    type="text"
+                    value={editedMessageText}
+                    onChange={handleEditChange}
+                  />
+                  <button onClick={saveEditedMessage}>Save</button>
+                </div>
+              ) : (
+                <div className="message-text">{msg.data.text}</div>
+              )}
             </div>
+
+            {/* Edit and Delete buttons (only visible to the message author) */}
+            {msg.data.uid === user?.uid && (
+              <div className="message-actions">
+                <button onClick={() => editMessage(msg.id, msg.data.text)}>Edit</button>
+                <button onClick={() => deleteMessage(msg.id)}>Delete</button>
+              </div>
+            )}
           </div>
         ))}
         <div ref={messagesEndRef} />
