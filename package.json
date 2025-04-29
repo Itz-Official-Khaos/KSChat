@@ -22,7 +22,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
-  "homepage": "https://itzofficialkhaos.github.io/superchat",
+  "homepage": "https://itzofficialkhaos.github.io/KSChat",
   "eslintConfig": {
     "extends": [
       "react-app",
